@@ -19,7 +19,6 @@ services:
     networks:
       - network1
       - rnetwork1
-      - rnetwork2
 
   router2:
     profiles: ["routers"]

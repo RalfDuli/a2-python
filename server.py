@@ -1,10 +1,8 @@
 import socket
-import os
 import sys
 import random
-import threading
-import time
 import struct
+import ipaddress
 
 class Router:
 
@@ -23,30 +21,20 @@ class Router:
     
     def broadcast(self):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         msg_to_relay, received_msg_ip_address = self.packet_received
 
         received_msg_ip_address = received_msg_ip_address[0]
-        received_msg_ip_address = received_msg_ip_address.split('.')
-        received_msg_ip_address = '.'.join(received_msg_ip_address[:3])
-        received_msg_ip_address = received_msg_ip_address + '.'
 
-        """ string = "A.B.C.D"
-        parts = string.split('.')  # Split the string by the '.' delimiter
-        result = '.'.join(parts[:3])  # Join the first three elements using '.' as a separator
+        for network in self.connected_networks:
+            network = network + '0/24'
 
-        print(result) """
-
-        if self.packet_received != ():
-            for network in self.connected_networks:
-                if network != received_msg_ip_address:
-                    print(
-                    f'NETWORK!!! {network} | COMPARING TO: {received_msg_ip_address}'
-                    )
-                    network_to_send_to = network + '255'
-                    print(f'Relaying msg to network: {network_to_send_to}')
-                    self.sock.sendto(msg_to_relay, (network_to_send_to, self.port))
-
-            self.packet_received = ()
+            for ip in ipaddress.IPv4Network(network):
+                if str(ip) != received_msg_ip_address:
+                    broadcast_address = str(ip)
+                    
+                    self.sock.sendto(msg_to_relay, (str(ip), self.port))  # Change the port number as needed
+                    print(f"Message sent to {broadcast_address}")
 
     def receive(self):
         while True:

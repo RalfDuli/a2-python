@@ -11,14 +11,15 @@ services:
     build: .
     volumes:
       - .:/compnets
-    command: python3 server.py
+    command: python3 server.py 172.22.0. 172.23.0. 192.168.0.
     stdin_open: true
     tty: true
     environment:
       HOSTNAME: router1
     networks:
-      - stub1
-      - trans1
+      - network1
+      - rnetwork1
+      - rnetwork2
 
   router2:
     profiles: ["routers"]
@@ -26,29 +27,14 @@ services:
     build: .
     volumes:
       - .:/compnets
-    command: python3 server.py
+    command: python3 server.py 172.22.0. 172.21.0. 
     stdin_open: true
     tty: true
     environment:
       HOSTNAME: router2
     networks:
-      - trans1
-      - trans2
-
-  router3:
-    profiles: ["routers"]
-    image: "pycimage"
-    build: .
-    volumes:
-      - .:/compnets
-    command: python3 server.py
-    stdin_open: true
-    tty: true
-    environment:
-      HOSTNAME: router3
-    networks:
-      - stub2
-      - trans2
+      - rnetwork1
+      - network2
 
   # 2 endpoints creating traffic
   client1:
@@ -57,7 +43,7 @@ services:
     build: .
     volumes:
       - .:/compnets
-    command: python3 client.py router1
+    command: python3 client.py 192.168.0.
     stdin_open: true
     tty: true
     depends_on:
@@ -65,7 +51,7 @@ services:
     environment:
       HOSTNAME: client1
     networks:
-      - stub1
+      - network1
 
   client2:
     profiles: ["endpoints"]
@@ -73,40 +59,35 @@ services:
     build: .
     volumes:
       - .:/compnets
-    command: python3 client.py router3
+    command: python3 client.py 172.21.0.
     stdin_open: true
     tty: true
     depends_on:
-      - router3
+      - router1
     environment:
       HOSTNAME: client2
     networks:
-      - stub2
+      - network2
 
 
 # 2 Stub networks and 3 transient networks
 networks:
-  stub1:
+  network1:
     ipam:
       driver: default
       config:
         - subnet: 192.168.0.0/24
-  stub2:
-    ipam:
-      driver: default
-      config:
-        - subnet: 192.168.10.0/24
-  trans1:
+  network2:
     ipam:
       driver: default
       config:
         - subnet: 172.21.0.0/24
-  trans2:
+  rnetwork1:
     ipam:
       driver: default
       config:
         - subnet: 172.22.0.0/24
-  trans3:
+  rnetwork2:
     ipam:
       driver: default
       config:

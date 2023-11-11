@@ -8,21 +8,16 @@ import struct
 
 class Endpoint:
 
-    def __init__(self, argv) -> None:
+    def __init__(self, connected_network) -> None:
         self.buffersize = 50000
         self.port = 5000
-        self.container_id = self.get_container_id()
-        self.connected_network = argv[0]
+        self.connected_network = connected_network[0]
         self.id = random.randint(0,10000)
         self.msg = f"Message from endpoint {self.id}"
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(('0.0.0.0' , self.port))
 
         print(f'Endpoint {self.id} initialised!')
-
-    def get_container_id(self):
-        container_id = os.getenv("HOSTNAME")
-        return container_id
     
     def broadcast(self):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -33,13 +28,13 @@ class Endpoint:
         self.sock.sendto(msg_to_send, (network_to_send_to, self.port))
 
     def receive(self):
-        print('receive thread started')
         while True:
             received_packet, _ = self.sock.recvfrom(self.buffersize)
             header_size = struct.calcsize('i')
             sender_id = (struct.unpack('i',  received_packet[:header_size]))[0]
-            contents_of_msg = received_packet[header_size:].decode()
-            print(contents_of_msg)
+            if sender_id != self.id:
+                contents_of_msg = received_packet[header_size:].decode()
+                print(contents_of_msg)
     
 
 def main(argv):

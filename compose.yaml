@@ -11,7 +11,7 @@ services:
     build: .
     volumes:
       - .:/compnets
-    command: python3 server.py 172.22.0. 172.23.0. 192.168.0.
+    command: python3 server.py 172.22.0. 172.23.0. 192.168.0. 2.0
     stdin_open: true
     tty: true
     environment:
@@ -20,13 +20,16 @@ services:
       - network1
       - rnetwork1
 
+#- tcpdump -i eth1 -c 10 -w /compnets/router2.pcap
+    #  - nc -l -u 
+
   router2:
     profiles: ["routers"]
     image: "pycimage"
     build: .
     volumes:
       - .:/compnets
-    command: python3 server.py 172.22.0. 172.21.0. 
+    command: python3 server.py 172.22.0. 172.21.0. 0.2
     stdin_open: true
     tty: true
     environment:

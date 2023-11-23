@@ -28,6 +28,7 @@ class Router:
         sender_id = (struct.unpack('ii',  msg_to_relay[:header_size]))[0]
         
         if sender_id in self.received_sender_ids:
+
             return
         for network in self.connected_networks:
             network = network + '0/24'
@@ -40,6 +41,7 @@ class Router:
             received_packet, _ = self.sock.recvfrom(self.buffersize)
             header_size = struct.calcsize('ii')
             msg_type = (struct.unpack('ii',  received_packet[:header_size]))[1]
+
             self.broadcast(received_packet)
 
 def main(argv):

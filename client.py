@@ -31,19 +31,24 @@ class Endpoint:
 
         network_to_send_to = network + '255'
         print(f'network to send to: {network_to_send_to}')
-        
-        msg_to_send = struct.pack('i', self.id) + self.msg.encode()
+        data = f'Broadcast from endpoint {self.id}'
+        msg_to_send = struct.pack('ii', self.id, 0) + data.encode()
         self.sock.sendto(msg_to_send, (network_to_send_to, self.port))
 
-    def receive(self):
+    def receive_broadcast(self):
+        received_packet, _ = self.sock.recvfrom(self.buffersize)
+        header_size = struct.calcsize('ii')
+        sender_id = (struct.unpack('ii',  received_packet[:header_size]))[0]
+        msg_type = (struct.unpack('ii',  received_packet[:header_size]))[1]
+        if sender_id != self.id and sender_id not in self.received_sender_ids:
+            contents_of_msg = received_packet[header_size:].decode()
+            print(contents_of_msg)
+            self.received_sender_ids.add(sender_id)
         while True:
-            received_packet, _ = self.sock.recvfrom(self.buffersize)
-            header_size = struct.calcsize('i')
-            sender_id= (struct.unpack('i',  received_packet[:header_size]))[0]
-            if sender_id != self.id and sender_id not in self.received_sender_ids:
-                contents_of_msg = received_packet[header_size:].decode()
-                print(contents_of_msg)
-                self.received_sender_ids.add(sender_id)
+            pass
+
+    def reply_to_broadcast(self):
+        pass
 
 
 def main(argv):
@@ -51,7 +56,7 @@ def main(argv):
     print(e.connected_network)
     time.sleep(random.uniform(0,5))
     e.broadcast()
-    e.receive()
+    e.receive_broadcast()
 
 if __name__ == '__main__':
     main(sys.argv[1:])  

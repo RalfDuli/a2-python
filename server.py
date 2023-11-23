@@ -24,8 +24,8 @@ class Router:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        header_size = struct.calcsize('i')
-        sender_id = (struct.unpack('i',  msg_to_relay[:header_size]))[0]
+        header_size = struct.calcsize('ii')
+        sender_id = (struct.unpack('ii',  msg_to_relay[:header_size]))[0]
         
         if sender_id in self.received_sender_ids:
             return
@@ -38,7 +38,8 @@ class Router:
     def listen(self):
         while True:
             received_packet, _ = self.sock.recvfrom(self.buffersize)
-
+            header_size = struct.calcsize('ii')
+            msg_type = (struct.unpack('ii',  received_packet[:header_size]))[1]
             self.broadcast(received_packet)
 
 def main(argv):

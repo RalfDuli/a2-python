@@ -52,15 +52,17 @@ class Endpoint:
                 break
 
     def reply_to_broadcast(self):
-        pass
+        reply = 'Reply to broadcast.'.encode()
+        reply = struct.pack('ii', self.id, 1) + reply
+        self.sock.sendto(reply, self.received_address)
 
 
 def main(argv):
     e = Endpoint(argv)
-    print(e.connected_network)
     time.sleep(random.uniform(0,5))
     e.broadcast()
     e.receive_broadcast()
+    e.reply_to_broadcast()
 
 if __name__ == '__main__':
     main(sys.argv[1:])  

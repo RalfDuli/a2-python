@@ -45,7 +45,7 @@ services:
     build: .
     volumes:
       - .:/compnets
-    command: python3 client.py 192.168.0. 146 169
+    command: python3 client.py 192.168.0. 146 168
     stdin_open: true
     tty: true
     depends_on:

@@ -53,38 +53,40 @@ class Router:
 
     def listen(self):
         while True:
-            received_packet, received_address = self.sock.recvfrom(self.buffersize)
-            header_size = struct.calcsize('iii')
-            header = struct.unpack('iii',  received_packet[:header_size])
-            sender_id = header[0]
-            endpoint_to_send_to = header[1]
-            msg_type = header[2]
+            try:
+                received_packet, received_address = self.sock.recvfrom(self.buffersize)
+                header_size = struct.calcsize('iii')
+                header = struct.unpack('iii',  received_packet[:header_size])
+                sender_id = header[0]
+                endpoint_to_send_to = header[1]
+                msg_type = header[2]
 
-            # Each message has a "msg_type" field in their header.
-            # 0 means it is a broadcast.
-            # 1 means it is a reply.
-            # 2 means it is directly sending data.
+                # Each message has a "msg_type" field in their header.
+                # 0 means it is a broadcast.
+                # 1 means it is a reply.
+                # 2 means it is directly sending data.
 
-            if msg_type == 0:
-                print('DEBUG: sender ID =',sender_id,'recv address =',received_address)
-                if sender_id not in self.received_ips.keys():
-                    self.received_ips[sender_id] = received_address
+                if msg_type == 0:
+                    print('DEBUG: sender ID =',sender_id,'recv address =',received_address)
+                    if sender_id not in self.received_ips.keys():
+                        self.received_ips[sender_id] = received_address
 
-                print('Broadcasting message.')
+                    print('Broadcasting message.')
 
-                if sender_id not in self.endpoint_dict.keys():
-                    self.endpoint_dict[sender_id] = endpoint_to_send_to
-                self.broadcast(received_packet)
-            elif msg_type == 1:
-                print('Reply from endpoint received.')
-                self.construct_forwarding_table()
-                adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
-                self.sock.sendto(received_packet, adrs_to_send_to)
-                #self.forward_data(received_packet, sender_id)
-            elif msg_type == 2:
-                print('Directly relaying message.')
-                adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
-                self.forward_data(received_packet, sender_id)
+                    if sender_id not in self.endpoint_dict.keys():
+                        self.endpoint_dict[sender_id] = endpoint_to_send_to
+                    self.broadcast(received_packet)
+                elif msg_type == 1:
+                    print('Reply from endpoint received.')
+                    self.construct_forwarding_table()
+                    adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
+                    self.sock.sendto(received_packet, adrs_to_send_to)
+                elif msg_type == 2:
+                    print('Directly relaying message.')
+                    adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
+                    self.forward_data(received_packet, sender_id)
+            except KeyError:
+                print('Endpoint to send to does not exist.')
 
     
     def construct_forwarding_table(self):

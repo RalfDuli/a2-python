@@ -41,6 +41,7 @@ class Router:
 
     def forward_data(self, msg, sender_id):
         adrs_to_relay_to = self.forwarding_table[sender_id]['Next hop']
+        print('DEBUG: IP DICT =', self.received_ips)
         print('DEBUG: FORWARDING TABLE =', self.forwarding_table)
         self.sock.sendto(msg, adrs_to_relay_to)
 
@@ -53,7 +54,7 @@ class Router:
             endpoint_to_send_to = header[1]
             msg_type = header[2]
 
-            self.received_ips[sender_id] = received_address
+            #self.received_ips[sender_id] = received_address
 
             # Each message has a "msg_type" field in their header.
             # 0 means it is a broadcast.
@@ -62,6 +63,7 @@ class Router:
 
             if msg_type == 0:
                 print('Broadcasting message.')
+                self.received_ips[sender_id] = received_address
                 self.broadcast(received_packet)
             elif msg_type == 1:
                 print('Reply from endpoint received.')
@@ -77,7 +79,7 @@ class Router:
         for key in self.received_ips.keys():
             self.forwarding_table[key] = {
                 'Origin' : key,
-                'Next hop' : self.received_ips[key]
+                'Next hop' : self.received_ips[endpoint_to_send_to]
             }
 
 def main(argv):

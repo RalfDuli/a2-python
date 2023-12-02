@@ -77,6 +77,7 @@ class Endpoint:
 
     def reply_to_broadcast(self):
         reply = 'Reply to broadcast.'.encode()
+        print('DEBUG: id=',self.id,'sending to',self.endpoint_to_send_to)
         reply = struct.pack('iii', self.id, self.endpoint_to_send_to, 1) + reply
         self.sock.sendto(reply, self.adjacent_router_adrs)
         print('Reply made!')

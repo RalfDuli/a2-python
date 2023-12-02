@@ -14,8 +14,10 @@ class Router:
         self.sock.bind(('0.0.0.0' , self.port))
         self.ip_address = self.sock.getsockname()[0]
         self.received_sender_ids = set()
+        self.received_ips = {}
+        self.forwarding_table = {}
 
-        # Wait until sending data. Simply a stylistic choice.
+        # Wait until sending data.
         time.sleep(float(connected_networks[-1]))
 
         print(f'Router initialised!')
@@ -24,22 +26,56 @@ class Router:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        header_size = struct.calcsize('i')
-        sender_id = (struct.unpack('i',  msg_to_relay[:header_size]))[0]
+        header_size = struct.calcsize('ii')
+        sender_id = (struct.unpack('ii',  msg_to_relay[:header_size]))[0]
         
         if sender_id in self.received_sender_ids:
             return
+        
         for network in self.connected_networks:
             network = network + '0/24'
             for ip in ipaddress.IPv4Network(network):
                 self.sock.sendto(msg_to_relay, (str(ip), self.port))
+
         self.received_sender_ids.add(sender_id)
+
+    def forward_data(self, msg, sender_id):
+        adrs_to_relay_to = self.forwarding_table[sender_id]['Next hop']
+        self.sock.sendto(msg, adrs_to_relay_to)
 
     def listen(self):
         while True:
-            received_packet, _ = self.sock.recvfrom(self.buffersize)
+            received_packet, received_address = self.sock.recvfrom(self.buffersize)
+            header_size = struct.calcsize('ii')
+            sender_id = (struct.unpack('ii',  received_packet[:header_size]))[0]
+            msg_type = (struct.unpack('ii',  received_packet[:header_size]))[1]
 
-            self.broadcast(received_packet)
+            self.received_ips[sender_id] = received_address
+
+
+            # Each message has a "msg_type" field in their header.
+            # 0 means it is a broadcast.
+            # 1 means it is a reply.
+            # 2 means it is directly sending data.
+
+            if msg_type == 0:
+                print('Broadcasting message.')
+                self.broadcast(received_packet)
+            elif msg_type == 1:
+                print('Reply from endpoint received.')
+                self.construct_forwarding_table()
+                adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
+                self.forward_data(received_packet, sender_id)
+            elif msg_type == 2:
+                print('Directly relaying message.')
+                self.forward_data(received_packet, sender_id)
+
+    def construct_forwarding_table(self):
+        for key in self.received_ips.keys():
+            self.forwarding_table[key] = {
+                'Origin' : key,
+                'Next hop' : self.received_ips[key]
+            }
 
 def main(argv):
     e = Router(argv)

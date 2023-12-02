@@ -26,8 +26,8 @@ class Router:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        header_size = struct.calcsize('ii')
-        sender_id = (struct.unpack('ii',  msg_to_relay[:header_size]))[0]
+        header_size = struct.calcsize('iii')
+        sender_id = (struct.unpack('iii',  msg_to_relay[:header_size]))[0]
         
         if sender_id in self.received_sender_ids:
             return
@@ -41,17 +41,19 @@ class Router:
 
     def forward_data(self, msg, sender_id):
         adrs_to_relay_to = self.forwarding_table[sender_id]['Next hop']
+        print('DEBUG: FORWARDING TABLE =', self.forwarding_table)
         self.sock.sendto(msg, adrs_to_relay_to)
 
     def listen(self):
         while True:
             received_packet, received_address = self.sock.recvfrom(self.buffersize)
-            header_size = struct.calcsize('ii')
-            sender_id = (struct.unpack('ii',  received_packet[:header_size]))[0]
-            msg_type = (struct.unpack('ii',  received_packet[:header_size]))[1]
+            header_size = struct.calcsize('iii')
+            header = struct.unpack('iii',  received_packet[:header_size])
+            sender_id = header[0]
+            endpoint_to_send_to = header[1]
+            msg_type = header[2]
 
             self.received_ips[sender_id] = received_address
-
 
             # Each message has a "msg_type" field in their header.
             # 0 means it is a broadcast.
@@ -63,14 +65,15 @@ class Router:
                 self.broadcast(received_packet)
             elif msg_type == 1:
                 print('Reply from endpoint received.')
-                self.construct_forwarding_table()
+                self.construct_forwarding_table(endpoint_to_send_to)
                 adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
                 self.forward_data(received_packet, sender_id)
             elif msg_type == 2:
                 print('Directly relaying message.')
+                adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
                 self.forward_data(received_packet, sender_id)
 
-    def construct_forwarding_table(self):
+    def construct_forwarding_table(self, endpoint_to_send_to):
         for key in self.received_ips.keys():
             self.forwarding_table[key] = {
                 'Origin' : key,

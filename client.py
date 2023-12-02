@@ -35,7 +35,7 @@ class Endpoint:
         network_to_send_to = network + '255'
         print(f'network to send to: {network_to_send_to}')
         data = f'Broadcast from endpoint {self.id}'
-        msg_to_send = struct.pack('ii', self.id, 0) + data.encode()
+        msg_to_send = struct.pack('iii', self.id, self.endpoint_to_send_to, 0) + data.encode()
         self.sock.sendto(msg_to_send, (network_to_send_to, self.port))
 
     def listen(self):
@@ -43,9 +43,9 @@ class Endpoint:
             received_packet, received_address = self.sock.recvfrom(self.buffersize)
             self.adjacent_router_adrs = received_address
 
-            header_size = struct.calcsize('ii')
-            sender_id = (struct.unpack('ii',  received_packet[:header_size]))[0]
-            msg_type = (struct.unpack('ii',  received_packet[:header_size]))[1]
+            header_size = struct.calcsize('iii')
+            sender_id = (struct.unpack('iii',  received_packet[:header_size]))[0]
+            msg_type = (struct.unpack('iii',  received_packet[:header_size]))[2]
             contents_of_msg = received_packet[header_size:].decode()
 
             # Each message has a "msg_type" field in their header.
@@ -64,17 +64,20 @@ class Endpoint:
                 self.send_msg()
             
             elif msg_type == 2:
+                #if sender_id != self.id:
                 print(contents_of_msg)
 
     def send_msg(self):
-        header = struct.pack('ii', self.id, 2)
+        # The header design is as such:
+        # [endpoint_ID, endpoint_to_send_to, type_of_message]
+        header = struct.pack('iii', self.id, self.endpoint_to_send_to, 2)
         msg_to_send = header + self.msg.encode()
         print('DEBUG: SENDING',self.msg,'TO ROUTERS')
         self.sock.sendto(msg_to_send, self.adjacent_router_adrs)
 
     def reply_to_broadcast(self):
         reply = 'Reply to broadcast.'.encode()
-        reply = struct.pack('ii', self.id, 1) + reply
+        reply = struct.pack('iii', self.id, self.endpoint_to_send_to, 1) + reply
         self.sock.sendto(reply, self.adjacent_router_adrs)
         print('Reply made!')
 

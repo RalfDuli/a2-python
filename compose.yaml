@@ -4,24 +4,21 @@
 # docker compose -f compose.yaml --profile routers --profile endpoints down -t 1
 services:
 
-  # 3 routers connecting networks
   router1:
     profiles: ["routers"]
     image: "pycimage"
     build: .
     volumes:
       - .:/compnets
-    command: python3 server.py 172.22.0. 172.23.0. 192.168.0. 3.0
+    command: python3 server.py 172.21.0. 172.22.0. 192.168.0. 3.0
     stdin_open: true
     tty: true
     environment:
       HOSTNAME: router1
     networks:
       - network1
-      - rnetwork1
-
-#- tcpdump -i eth1 -c 10 -w /compnets/router2.pcap
-    #  - nc -l -u 
+      - network2
+      - network3
 
   router2:
     profiles: ["routers"]
@@ -29,14 +26,30 @@ services:
     build: .
     volumes:
       - .:/compnets
-    command: python3 server.py 172.22.0. 172.21.0. 0.2
+    command: python3 server.py 172.22.0. 172.30.0. 0.2
     stdin_open: true
     tty: true
     environment:
       HOSTNAME: router2
     networks:
-      - rnetwork1
-      - network2
+      - network3
+      - network4
+
+  router3:
+    profiles: ["routers"]
+    image: "pycimage"
+    build: .
+    volumes:
+      - .:/compnets
+    command: python3 server.py 172.30.0. 172.25.0. 172.27.0. 6.0
+    stdin_open: true
+    tty: true
+    environment:
+      HOSTNAME: router2
+    networks:
+      - network4
+      - network5
+      - network6
 
   # 2 endpoints creating traffic
   client1:
@@ -71,6 +84,38 @@ services:
     networks:
       - network2
 
+  client3:
+    profiles: ["endpoints"]
+    image: "pycimage"
+    build: .
+    volumes:
+      - .:/compnets
+    command: python3 client.py 172.25.0. 171 180
+    stdin_open: true
+    tty: true
+    depends_on:
+      - router3
+    environment:
+      HOSTNAME: client4
+    networks:
+      - network5
+  
+  client4:
+    profiles: ["endpoints"]
+    image: "pycimage"
+    build: .
+    volumes:
+      - .:/compnets
+    command: python3 client.py 172.27.0. 180 171
+    stdin_open: true
+    tty: true
+    depends_on:
+      - router3
+    environment:
+      HOSTNAME: client4
+    networks:
+      - network6
+
 
 # 2 Stub networks and 3 transient networks
 networks:
@@ -84,13 +129,23 @@ networks:
       driver: default
       config:
         - subnet: 172.21.0.0/24
-  rnetwork1:
+  network3:
     ipam:
       driver: default
       config:
         - subnet: 172.22.0.0/24
-  rnetwork2:
+  network4:
     ipam:
       driver: default
       config:
-        - subnet: 172.23.0.0/24
+        - subnet: 172.30.0.0/24
+  network5:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.0.0/24
+  network6:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.27.0.0/24

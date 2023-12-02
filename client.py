@@ -64,7 +64,6 @@ class Endpoint:
                 self.send_msg()
             
             elif msg_type == 2:
-                #if sender_id != self.id:
                 print(contents_of_msg)
 
     def send_msg(self):
@@ -72,12 +71,11 @@ class Endpoint:
         # [endpoint_ID, endpoint_to_send_to, type_of_message]
         header = struct.pack('iii', self.id, self.endpoint_to_send_to, 2)
         msg_to_send = header + self.msg.encode()
-        print('DEBUG: SENDING',self.msg,'TO ROUTERS')
+       
         self.sock.sendto(msg_to_send, self.adjacent_router_adrs)
 
     def reply_to_broadcast(self):
         reply = 'Reply to broadcast.'.encode()
-        print('DEBUG: id=',self.id,'sending to',self.endpoint_to_send_to)
         reply = struct.pack('iii', self.id, self.endpoint_to_send_to, 1) + reply
         self.sock.sendto(reply, self.adjacent_router_adrs)
         print('Reply made!')

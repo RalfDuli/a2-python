@@ -1,15 +1,16 @@
 import socket
 import sys
 import struct
-import ipaddress
 import time
+import threading
 
 class Router:
 
-    def __init__(self, connected_networks) -> None:
+    # argv follows the format: [list_of_connected_networks, time_to_wait_before_initialising]
+    def __init__(self, argv) -> None:
         self.buffersize = 50000
         self.port = 5000
-        self.connected_networks = connected_networks[:-1]
+        self.connected_networks = argv[:-1]
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(('0.0.0.0' , self.port))
         self.ip_address = self.sock.getsockname()[0]
@@ -19,7 +20,7 @@ class Router:
         self.endpoint_dict = {}
 
         # Wait until sending data.
-        time.sleep(float(connected_networks[-1]))
+        time.sleep(float(argv[-1]))
 
         print(f'Router initialised!')
 
@@ -32,12 +33,6 @@ class Router:
         
         if sender_id in self.received_sender_ids:
             return
-        
-        # for network in self.connected_networks:
-        #     network = network + '0/24'
-        #     for ip in ipaddress.IPv4Network(network):
-        #         self.sock.sendto(msg_to_relay, (str(ip), self.port))
-
         for network in self.connected_networks:
             network = network + '255'
             
@@ -47,8 +42,6 @@ class Router:
 
     def forward_data(self, msg, sender_id):
         adrs_to_relay_to = self.forwarding_table[sender_id]['Next hop']
-        print('DEBUG: IP DICT =', self.received_ips)
-        print('DEBUG: FORWARDING TABLE =', self.forwarding_table)
         self.sock.sendto(msg, adrs_to_relay_to)
 
     def listen(self):
@@ -67,15 +60,16 @@ class Router:
                 # 2 means it is directly sending data.
 
                 if msg_type == 0:
-                    print('DEBUG: sender ID =',sender_id,'recv address =',received_address)
                     if sender_id not in self.received_ips.keys():
                         self.received_ips[sender_id] = received_address
-
+                    print('Received broadcast from',sender_id)
                     print('Broadcasting message.')
+                    
 
                     if sender_id not in self.endpoint_dict.keys():
                         self.endpoint_dict[sender_id] = endpoint_to_send_to
                     self.broadcast(received_packet)
+                    
                 elif msg_type == 1:
                     print('Reply from endpoint received.')
                     self.construct_forwarding_table()
@@ -87,19 +81,26 @@ class Router:
                     self.forward_data(received_packet, sender_id)
             except KeyError:
                 print('Endpoint to send to does not exist.')
+                for key in self.forwarding_table.keys():
+                    self.forward_data(received_packet, key)
 
     
     def construct_forwarding_table(self):
         for key in self.received_ips.keys():
             self.forwarding_table[key] = {
                 'Origin' : key,
-                'Next hop' : self.received_ips[self.endpoint_dict[key]] #self.received_ips[endpoint_to_send_to]
+                'Next hop' : self.received_ips[self.endpoint_dict[key]]
             }
 
 def main(argv):
     e = Router(argv)
     print(f'Connected networks to the router: {e.connected_networks}')
-    e.listen()
+    listening_thread_1 = threading.Thread(target=e.listen())
+    listening_thread_2 = threading.Thread(target=e.listen())
+    listening_thread_1.start()
+    listening_thread_2.start()
+    listening_thread_1.join()
+    listening_thread_2.join()
 
 if __name__ == '__main__':
     main(sys.argv[1:])

@@ -17,7 +17,7 @@ class Endpoint:
         self.sock.bind(('0.0.0.0', self.port))
         self.endpoint_ip = socket.gethostbyname(socket.gethostname())
         self.received_sender_ids = set()
-        self.received_address = None
+        self.adjacent_router_adrs = None
 
         print(f'Endpoint {self.id} initialised!')
     
@@ -36,33 +36,52 @@ class Endpoint:
         msg_to_send = struct.pack('ii', self.id, 0) + data.encode()
         self.sock.sendto(msg_to_send, (network_to_send_to, self.port))
 
-    def receive_broadcast(self):
+    def listen(self):
         while True:
             received_packet, received_address = self.sock.recvfrom(self.buffersize)
-            self.received_address = received_address
+            self.adjacent_router_adrs = received_address
 
             header_size = struct.calcsize('ii')
             sender_id = (struct.unpack('ii',  received_packet[:header_size]))[0]
             msg_type = (struct.unpack('ii',  received_packet[:header_size]))[1]
+            contents_of_msg = received_packet[header_size:].decode()
 
-            if sender_id != self.id and sender_id not in self.received_sender_ids:
-                contents_of_msg = received_packet[header_size:].decode()
+            # Each message has a "msg_type" field in their header.
+            # 0 means it is a broadcast.
+            # 1 means it is a reply.
+            # 2 means it is directly sending data.
+
+            if msg_type == 0:
+                if sender_id != self.id and sender_id not in self.received_sender_ids:
+                    print(contents_of_msg)
+                    self.received_sender_ids.add(sender_id)
+                    self.reply_to_broadcast()
+
+            elif msg_type == 1:
+                print('DEBUG: REPLY MADE.')
+                self.send_msg()
+            
+            elif msg_type == 2:
                 print(contents_of_msg)
-                self.received_sender_ids.add(sender_id)
-                break
+
+    def send_msg(self):
+        header = struct.pack('ii', self.id, 2)
+        msg_to_send = header + self.msg.encode()
+        print('DEBUG: SENDING',self.msg,'TO ROUTERS')
+        self.sock.sendto(msg_to_send, self.adjacent_router_adrs)
 
     def reply_to_broadcast(self):
         reply = 'Reply to broadcast.'.encode()
         reply = struct.pack('ii', self.id, 1) + reply
-        self.sock.sendto(reply, self.received_address)
+        self.sock.sendto(reply, self.adjacent_router_adrs)
+        print('Reply made!')
 
 
 def main(argv):
     e = Endpoint(argv)
     time.sleep(random.uniform(0,5))
     e.broadcast()
-    e.receive_broadcast()
-    e.reply_to_broadcast()
+    e.listen()
 
 if __name__ == '__main__':
     main(sys.argv[1:])  

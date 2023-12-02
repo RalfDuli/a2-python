@@ -39,11 +39,9 @@ class Router:
 
         self.received_sender_ids.add(sender_id)
 
-    def act_on_endpoint_reply(self):
-        pass
-
-    def send_data(self):
-        pass
+    def forward_data(self, msg, sender_id):
+        adrs_to_relay_to = self.forwarding_table[sender_id]['Next hop']
+        self.sock.sendto(msg, adrs_to_relay_to)
 
     def listen(self):
         while True:
@@ -53,16 +51,24 @@ class Router:
             msg_type = (struct.unpack('ii',  received_packet[:header_size]))[1]
 
             self.received_ips[sender_id] = received_address
-            #print(f'DEBUG: {self.received_ips}')
+
 
             # Each message has a "msg_type" field in their header.
             # 0 means it is a broadcast.
             # 1 means it is a reply.
             # 2 means it is directly sending data.
+
             if msg_type == 0:
+                print('Broadcasting message.')
                 self.broadcast(received_packet)
             elif msg_type == 1:
+                print('Reply from endpoint received.')
                 self.construct_forwarding_table()
+                adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
+                self.forward_data(received_packet, sender_id)
+            elif msg_type == 2:
+                print('Directly relaying message.')
+                self.forward_data(received_packet, sender_id)
 
     def construct_forwarding_table(self):
         for key in self.received_ips.keys():
@@ -70,7 +76,6 @@ class Router:
                 'Origin' : key,
                 'Next hop' : self.received_ips[key]
             }
-        print('DEBUG:', self.forwarding_table)
 
 def main(argv):
     e = Router(argv)

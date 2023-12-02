@@ -16,6 +16,7 @@ class Router:
         self.received_sender_ids = set()
         self.received_ips = {}
         self.forwarding_table = {}
+        self.endpoint_dict = {}
 
         # Wait until sending data.
         time.sleep(float(connected_networks[-1]))
@@ -32,10 +33,15 @@ class Router:
         if sender_id in self.received_sender_ids:
             return
         
+        # for network in self.connected_networks:
+        #     network = network + '0/24'
+        #     for ip in ipaddress.IPv4Network(network):
+        #         self.sock.sendto(msg_to_relay, (str(ip), self.port))
+
         for network in self.connected_networks:
-            network = network + '0/24'
-            for ip in ipaddress.IPv4Network(network):
-                self.sock.sendto(msg_to_relay, (str(ip), self.port))
+            network = network + '255'
+            
+            self.sock.sendto(msg_to_relay, (network, self.port))
 
         self.received_sender_ids.add(sender_id)
 
@@ -54,32 +60,38 @@ class Router:
             endpoint_to_send_to = header[1]
             msg_type = header[2]
 
-            #self.received_ips[sender_id] = received_address
-
             # Each message has a "msg_type" field in their header.
             # 0 means it is a broadcast.
             # 1 means it is a reply.
             # 2 means it is directly sending data.
 
             if msg_type == 0:
+                print('DEBUG: sender ID =',sender_id,'recv address =',received_address)
+                if sender_id not in self.received_ips.keys():
+                    self.received_ips[sender_id] = received_address
+
                 print('Broadcasting message.')
-                self.received_ips[sender_id] = received_address
+
+                if sender_id not in self.endpoint_dict.keys():
+                    self.endpoint_dict[sender_id] = endpoint_to_send_to
                 self.broadcast(received_packet)
             elif msg_type == 1:
                 print('Reply from endpoint received.')
-                self.construct_forwarding_table(endpoint_to_send_to)
+                self.construct_forwarding_table()
                 adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
-                self.forward_data(received_packet, sender_id)
+                self.sock.sendto(received_packet, adrs_to_send_to)
+                #self.forward_data(received_packet, sender_id)
             elif msg_type == 2:
                 print('Directly relaying message.')
                 adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
                 self.forward_data(received_packet, sender_id)
 
-    def construct_forwarding_table(self, endpoint_to_send_to):
+    
+    def construct_forwarding_table(self):
         for key in self.received_ips.keys():
             self.forwarding_table[key] = {
                 'Origin' : key,
-                'Next hop' : self.received_ips[endpoint_to_send_to]
+                'Next hop' : self.received_ips[self.endpoint_dict[key]] #self.received_ips[endpoint_to_send_to]
             }
 
 def main(argv):

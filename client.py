@@ -6,11 +6,13 @@ import time
 
 class Endpoint:
 
-    def __init__(self, connected_network) -> None:
+    # argv follows the format [connected_network, endpoint_ID, endpoint_to_send_to_ID]
+    def __init__(self, argv) -> None:
         self.buffersize = 50000
         self.port = 5000
-        self.connected_network = connected_network[0]
-        self.id = self.generate_random_number()
+        self.connected_network = argv[0]
+        self.id = int(argv[2])
+        self.endpoint_to_send_to = int(argv[1])
         self.msg = f"Message from endpoint {self.id}"
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)

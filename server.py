@@ -28,14 +28,14 @@ class Router:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        header_size = struct.calcsize('iii')
-        sender_id = (struct.unpack('iii',  msg_to_relay[:header_size]))[0]
+        header_size = struct.calcsize('HHH')
+        sender_id = (struct.unpack('HHH',  msg_to_relay[:header_size]))[0]
         
         if sender_id in self.received_sender_ids:
             return
+        
         for network in self.connected_networks:
             network = network + '255'
-            
             self.sock.sendto(msg_to_relay, (network, self.port))
 
         self.received_sender_ids.add(sender_id)
@@ -48,8 +48,8 @@ class Router:
         while True:
             try:
                 received_packet, received_address = self.sock.recvfrom(self.buffersize)
-                header_size = struct.calcsize('iii')
-                header = struct.unpack('iii',  received_packet[:header_size])
+                header_size = struct.calcsize('HHH')
+                header = struct.unpack('HHH',  received_packet[:header_size])
                 sender_id = header[0]
                 endpoint_to_send_to = header[1]
                 msg_type = header[2]
@@ -58,6 +58,7 @@ class Router:
                 # 0 means it is a broadcast.
                 # 1 means it is a reply.
                 # 2 means it is directly sending data.
+                # 3 means it is signing out of the network.
 
                 if msg_type == 0:
                     if sender_id not in self.received_ips.keys():
@@ -65,7 +66,6 @@ class Router:
                     print('Received broadcast from',sender_id)
                     print('Broadcasting message.')
                     
-
                     if sender_id not in self.endpoint_dict.keys():
                         self.endpoint_dict[sender_id] = endpoint_to_send_to
                     self.broadcast(received_packet)
@@ -73,16 +73,28 @@ class Router:
                 elif msg_type == 1:
                     print('Reply from endpoint received.')
                     self.construct_forwarding_table()
+                    print(f"""
+                        Forwarding table constructed.
+                        {self.forwarding_table}
+                    """)
                     adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
                     self.sock.sendto(received_packet, adrs_to_send_to)
+
                 elif msg_type == 2:
                     print('Directly relaying message.')
                     adrs_to_send_to = self.forwarding_table[sender_id]['Next hop']
                     self.forward_data(received_packet, sender_id)
+
+                elif msg_type == 3:
+                    self.forwarding_table.pop(sender_id)
+                    self.received_ips.pop(sender_id)
+                    
+                    print(f"""Endpoint {sender_id} signed out of the Network. New forwarding table:
+                        {self.forwarding_table}
+                        \n""")
+                    
             except KeyError:
                 print('Endpoint to send to does not exist.')
-                for key in self.forwarding_table.keys():
-                    self.forward_data(received_packet, key)
 
     
     def construct_forwarding_table(self):
@@ -95,12 +107,7 @@ class Router:
 def main(argv):
     e = Router(argv)
     print(f'Connected networks to the router: {e.connected_networks}')
-    listening_thread_1 = threading.Thread(target=e.listen())
-    listening_thread_2 = threading.Thread(target=e.listen())
-    listening_thread_1.start()
-    listening_thread_2.start()
-    listening_thread_1.join()
-    listening_thread_2.join()
+    e.listen()
 
 if __name__ == '__main__':
     main(sys.argv[1:])
